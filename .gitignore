@@ -1,0 +1,23 @@
+# Virtual Environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Model files
+*.h5
+*.keras
+*.pt
+*.pth
+
+# Generated files
+generated_images/
+saved_models/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
