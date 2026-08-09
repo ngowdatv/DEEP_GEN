@@ -3,7 +3,7 @@ from tensorflow.keras import layers
 
 LATENT_DIM = 100
 
-def build_generator():
+def build_generator(latent_dim=100):
     model = tf.keras.Sequential(name="Generator")
 
     model.add(layers.Dense(8 * 8 * 256, input_dim=LATENT_DIM))

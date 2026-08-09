@@ -3,27 +3,46 @@ import numpy as np
 import tensorflow as tf
 
 LATENT_DIM = 100
+NUMBER_OF_IMAGES = 20
 
-# Load trained generator
-generator = tf.keras.models.load_model("saved_models/generator.keras")
+MODEL_PATH = "saved_models/generator.keras"
+OUTPUT_PATH = "generated_images"
 
-# Create output folder
-os.makedirs("generated_images", exist_ok=True)
+os.makedirs(OUTPUT_PATH, exist_ok=True)
 
-# Generate random noise
-noise = np.random.normal(0, 1, (10, LATENT_DIM))
+generator = tf.keras.models.load_model(MODEL_PATH)
 
-# Generate images
-generated = generator.predict(noise, verbose=0)
+noise = np.random.normal(
+    0,
+    1,
+    (NUMBER_OF_IMAGES, LATENT_DIM)
+)
 
-# Convert from [-1,1] to [0,1]
-generated = (generated + 1) / 2.0
+generated_images = generator.predict(
+    noise,
+    verbose=1
+)
 
-# Save images
-for i, img in enumerate(generated):
-    tf.keras.utils.save_img(
-        f"generated_images/generated_{i+1}.png",
-        img
+generated_images = (
+    generated_images + 1
+) / 2.0
+
+for i, image in enumerate(generated_images):
+
+    filename = os.path.join(
+        OUTPUT_PATH,
+        f"synthetic_{i + 1}.png"
     )
 
-print("10 Images Generated Successfully!")
+    tf.keras.utils.save_img(
+        filename,
+        image
+    )
+
+print("=" * 40)
+print("SYNTHETIC DATA GENERATION COMPLETE")
+print("=" * 40)
+
+print(
+    f"Generated Images: {NUMBER_OF_IMAGES}"
+)

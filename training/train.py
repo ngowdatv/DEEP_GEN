@@ -1,70 +1,210 @@
-import tensorflow as tf
+import os
 import numpy as np
+import tensorflow as tf
 
 from models.generator import build_generator
 from models.discriminator import build_discriminator
 
+# =========================
+# CONFIGURATION
+# =========================
+
+IMAGE_SIZE = 128
+CHANNELS = 3
 LATENT_DIM = 100
-BATCH_SIZE = 32
+
+BATCH_SIZE = 16
 EPOCHS = 5
 
-generator = build_generator()
+DATASET_PATH = "dataset/images"
+
+MODEL_PATH = "saved_models"
+OUTPUT_PATH = "generated_images"
+
+os.makedirs(MODEL_PATH, exist_ok=True)
+os.makedirs(OUTPUT_PATH, exist_ok=True)
+
+
+# =========================
+# LOAD IMAGE DATASET
+# =========================
+
+print("=" * 50)
+print("LOADING IMAGE DATASET")
+print("=" * 50)
+
+dataset = tf.keras.utils.image_dataset_from_directory(
+    DATASET_PATH,
+    labels=None,
+    image_size=(IMAGE_SIZE, IMAGE_SIZE),
+    batch_size=BATCH_SIZE,
+    shuffle=True
+)
+
+# Normalize images from [0,255] to [-1,1]
+dataset = dataset.map(
+    lambda x: (tf.cast(x, tf.float32) / 127.5) - 1
+)
+
+print("Dataset loaded successfully!")
+
+
+# =========================
+# BUILD MODELS
+# =========================
+
+generator = build_generator(LATENT_DIM)
 discriminator = build_discriminator()
 
-discriminator.compile(
-    optimizer=tf.keras.optimizers.Adam(0.0002, 0.5),
-    loss="binary_crossentropy",
-    metrics=["accuracy"]
+cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=False)
+
+g_optimizer = tf.keras.optimizers.Adam(
+    learning_rate=0.0002,
+    beta_1=0.5
 )
 
-discriminator.trainable = False
-
-gan = tf.keras.Sequential([
-    generator,
-    discriminator
-])
-
-gan.compile(
-    optimizer=tf.keras.optimizers.Adam(0.0002, 0.5),
-    loss="binary_crossentropy"
+d_optimizer = tf.keras.optimizers.Adam(
+    learning_rate=0.0002,
+    beta_1=0.5
 )
 
+
+# =========================
+# TRAINING STEP
+# =========================
+
+@tf.function
+def train_step(real_images):
+
+    batch_size = tf.shape(real_images)[0]
+
+    noise = tf.random.normal(
+        [batch_size, LATENT_DIM]
+    )
+
+    with tf.GradientTape() as g_tape, tf.GradientTape() as d_tape:
+
+        fake_images = generator(
+            noise,
+            training=True
+        )
+
+        real_output = discriminator(
+            real_images,
+            training=True
+        )
+
+        fake_output = discriminator(
+            fake_images,
+            training=True
+        )
+
+        g_loss = cross_entropy(
+            tf.ones_like(fake_output),
+            fake_output
+        )
+
+        d_loss_real = cross_entropy(
+            tf.ones_like(real_output),
+            real_output
+        )
+
+        d_loss_fake = cross_entropy(
+            tf.zeros_like(fake_output),
+            fake_output
+        )
+
+        d_loss = (
+            d_loss_real + d_loss_fake
+        ) / 2
+
+    g_gradients = g_tape.gradient(
+        g_loss,
+        generator.trainable_variables
+    )
+
+    d_gradients = d_tape.gradient(
+        d_loss,
+        discriminator.trainable_variables
+    )
+
+    g_optimizer.apply_gradients(
+        zip(
+            g_gradients,
+            generator.trainable_variables
+        )
+    )
+
+    d_optimizer.apply_gradients(
+        zip(
+            d_gradients,
+            discriminator.trainable_variables
+        )
+    )
+
+    return g_loss, d_loss
+
+
+# =========================
+# TRAIN GAN
+# =========================
+
 print("=" * 50)
-print("Starting GAN Training...")
+print("STARTING GAN TRAINING")
 print("=" * 50)
+
+generator_losses = []
+discriminator_losses = []
 
 for epoch in range(EPOCHS):
 
-    # Random noise
-    noise = np.random.normal(0, 1, (BATCH_SIZE, LATENT_DIM))
+    g_total = 0
+    d_total = 0
+    batches = 0
 
-    # Generate fake images
-    fake_images = generator.predict(noise, verbose=0)
+    for images in dataset:
 
-    # Dummy real images (replace with your dataset later)
-    real_images = np.random.rand(BATCH_SIZE, 128, 128, 3)
+        g_loss, d_loss = train_step(images)
 
-    real_labels = np.ones((BATCH_SIZE, 1))
-    fake_labels = np.zeros((BATCH_SIZE, 1))
+        g_total += float(g_loss)
+        d_total += float(d_loss)
 
-    discriminator.trainable = True
+        batches += 1
 
-    d_loss_real = discriminator.train_on_batch(real_images, real_labels)
-    d_loss_fake = discriminator.train_on_batch(fake_images, fake_labels)
+    g_average = g_total / batches
+    d_average = d_total / batches
 
-    discriminator.trainable = False
+    generator_losses.append(g_average)
+    discriminator_losses.append(d_average)
 
-    g_loss = gan.train_on_batch(noise, real_labels)
+    print(
+        f"Epoch {epoch + 1}/{EPOCHS} | "
+        f"Generator Loss: {g_average:.4f} | "
+        f"Discriminator Loss: {d_average:.4f}"
+    )
 
-    print(f"Epoch {epoch+1}/{EPOCHS}")
-    print(f"Discriminator Real Loss : {d_loss_real}")
-    print(f"Discriminator Fake Loss : {d_loss_fake}")
-    print(f"Generator Loss          : {g_loss}")
-    print("-" * 50)
 
-print("Training Completed Successfully!")
+# =========================
+# SAVE MODELS
+# =========================
 
-generator.save("saved_models/generator.keras")
-discriminator.save("saved_models/discriminator.keras")
+generator.save(
+    os.path.join(
+        MODEL_PATH,
+        "generator.keras"
+    )
+)
 
-print("Models saved successfully!")
+discriminator.save(
+    os.path.join(
+        MODEL_PATH,
+        "discriminator.keras"
+    )
+)
+
+print("=" * 50)
+print("TRAINING COMPLETED")
+print("=" * 50)
+
+print("Generator saved successfully!")
+print("Discriminator saved successfully!")
