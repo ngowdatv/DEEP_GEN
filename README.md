@@ -32,31 +32,21 @@ Dataset Type Detection
         |                |                |
         v                v                v
        GAN              CTGAN       Text Generation
-        |
-        v
-Synthetic Data
-        |
-        v
-Evaluation
-        |
-        v
-Frontend Display
+        |                |                |
+        +----------------+----------------+
+                         |
+                         v
+                  Synthetic Data
+                         |
+                         v
+                     Evaluation
+                         |
+                         v
+                  Frontend Display
 
 ---
 
-## 3. Team Responsibilities
-
-| Team Member | Responsibility |
-|-------------|----------------|
-| Member 1 | GAN-based image generation |
-| Member 2 | VAE / additional image generation |
-| Member 3 | CTGAN for CSV datasets |
-| Member 4 | Text generation module |
-| Member 5 | Streamlit frontend and integration |
-
----
-
-## 4. GAN Module
+## 3. GAN Module
 
 The GAN module is responsible for synthetic image generation.
 
@@ -67,9 +57,11 @@ A GAN consists of two main neural networks:
 The Generator creates synthetic images from random noise.
 
 Input:
+
 Random latent vector
 
 Output:
+
 Synthetic image
 
 ### Discriminator
@@ -77,16 +69,18 @@ Synthetic image
 The Discriminator determines whether an image is real or generated.
 
 Input:
+
 Image
 
 Output:
+
 Probability indicating whether the image is real or generated.
 
 The Generator and Discriminator are trained together through adversarial training so that the Generator gradually improves its ability to create realistic images.
 
 ---
 
-## 5. GAN Workflow
+## 4. GAN Workflow
 
 The implemented GAN pipeline follows these steps:
 
@@ -122,7 +116,7 @@ Evaluation
 
 ---
 
-## 6. Project Structure
+## 5. Project Structure
 
 Deep_Generative_Framework/
 |
@@ -162,7 +156,7 @@ Deep_Generative_Framework/
 
 ---
 
-## 7. Dataset Detection
+## 6. Dataset Detection
 
 The framework includes a dataset detection module.
 
@@ -201,7 +195,7 @@ The model selection is based on the dataset format rather than a fixed domain.
 
 ---
 
-## 8. GAN Training
+## 7. GAN Training
 
 The GAN training module loads images from:
 
@@ -223,7 +217,7 @@ The current implementation has been tested using a small image dataset to verify
 
 ---
 
-## 9. Generator Model
+## 8. Generator Model
 
 The Generator is responsible for transforming a random latent vector into a synthetic image.
 
@@ -244,7 +238,7 @@ This represents an RGB image.
 
 ---
 
-## 10. Discriminator Model
+## 9. Discriminator Model
 
 The Discriminator is responsible for classifying images as real or generated.
 
@@ -260,7 +254,7 @@ The final output represents the discriminator prediction for the input image.
 
 ---
 
-## 11. GAN Architecture
+## 10. GAN Architecture
 
 The Generator and Discriminator are combined into the complete GAN architecture.
 
@@ -282,7 +276,7 @@ During training, the Generator attempts to create realistic images while the Dis
 
 ---
 
-## 12. Synthetic Image Generation
+## 11. Synthetic Image Generation
 
 After training, the saved Generator can be used to generate synthetic images.
 
@@ -303,7 +297,7 @@ generated_images/
 
 ---
 
-## 13. Current Test Result
+## 12. Current Test Result
 
 The GAN pipeline was successfully tested with an image dataset containing 4 sample images.
 
@@ -319,11 +313,13 @@ Test Result:
 
 Generated Images: 20
 
-The current 4-image dataset was used for pipeline testing. Larger datasets are required for meaningful image-quality evaluation and better synthetic results.
+The current 4-image dataset was used for pipeline testing.
+
+Larger datasets are required for meaningful image-quality evaluation and better synthetic results.
 
 ---
 
-## 14. Evaluation
+## 13. Evaluation
 
 The project contains evaluation modules for analyzing generated images.
 
@@ -342,7 +338,7 @@ These metrics can be used to analyze generated image quality and monitor GAN tra
 
 ---
 
-## 15. Dataset Independence
+## 14. Dataset Independence
 
 The GAN image-generation module is designed to be domain-independent.
 
@@ -360,7 +356,7 @@ Therefore, the GAN module is not restricted to only medical datasets.
 
 ---
 
-## 16. Frontend Integration
+## 15. Frontend Integration
 
 The Streamlit frontend will provide the user interface for uploading datasets and displaying generated results.
 
@@ -386,7 +382,7 @@ The GAN module will process the uploaded images and return the generated synthet
 
 ---
 
-## 17. Technologies Used
+## 16. Technologies Used
 
 The project uses:
 
@@ -403,7 +399,7 @@ The project uses:
 
 ---
 
-## 18. Current Status
+## 17. Current Status
 
 The GAN image generation module has been implemented and tested.
 
@@ -450,7 +446,7 @@ The core GAN image-generation pipeline is currently functional.
 
 ---
 
-## 19. Limitations
+## 18. Limitations
 
 The current implementation has been tested using a small dataset containing only 4 images.
 
@@ -462,7 +458,7 @@ The current implementation uses CPU-based TensorFlow execution on the developmen
 
 ---
 
-## 20. Future Improvements
+## 19. Future Improvements
 
 Future improvements include:
 
@@ -482,7 +478,7 @@ Future improvements include:
 
 ---
 
-## 21. Conclusion
+## 20. Conclusion
 
 The GAN component provides the image generation module of the Deep Generative Framework.
 
