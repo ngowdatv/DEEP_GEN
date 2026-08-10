@@ -1,33 +1,34 @@
 import os
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 from models.generator import build_generator
 from models.discriminator import build_discriminator
 
-# =========================
+
+# ============================================================
 # CONFIGURATION
-# =========================
+# ============================================================
 
-IMAGE_SIZE = 128
-CHANNELS = 3
 LATENT_DIM = 100
-
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 EPOCHS = 5
+IMAGE_SIZE = 128
 
 DATASET_PATH = "dataset/images"
-
 MODEL_PATH = "saved_models"
+EVALUATION_PATH = "evaluation"
 OUTPUT_PATH = "generated_images"
 
 os.makedirs(MODEL_PATH, exist_ok=True)
+os.makedirs(EVALUATION_PATH, exist_ok=True)
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 
 
-# =========================
+# ============================================================
 # LOAD IMAGE DATASET
-# =========================
+# ============================================================
 
 print("=" * 50)
 print("LOADING IMAGE DATASET")
@@ -41,113 +42,140 @@ dataset = tf.keras.utils.image_dataset_from_directory(
     shuffle=True
 )
 
-# Normalize images from [0,255] to [-1,1]
-dataset = dataset.map(
-    lambda x: (tf.cast(x, tf.float32) / 127.5) - 1
-)
+
+def normalize(image):
+    image = tf.cast(image, tf.float32)
+    return (image / 127.5) - 1.0
+
+
+dataset = dataset.map(normalize)
 
 print("Dataset loaded successfully!")
 
 
-# =========================
+# ============================================================
 # BUILD MODELS
-# =========================
+# ============================================================
 
-generator = build_generator(LATENT_DIM)
+generator = build_generator()
 discriminator = build_discriminator()
 
-cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=False)
+print("Generator loaded successfully")
+print("Discriminator loaded successfully")
 
-g_optimizer = tf.keras.optimizers.Adam(
+
+# ============================================================
+# OPTIMIZERS
+# ============================================================
+
+cross_entropy = tf.keras.losses.BinaryCrossentropy(
+    from_logits=False
+)
+
+generator_optimizer = tf.keras.optimizers.Adam(
     learning_rate=0.0002,
     beta_1=0.5
 )
 
-d_optimizer = tf.keras.optimizers.Adam(
+discriminator_optimizer = tf.keras.optimizers.Adam(
     learning_rate=0.0002,
     beta_1=0.5
 )
 
 
-# =========================
-# TRAINING STEP
-# =========================
+# ============================================================
+# LOSS FUNCTIONS
+# ============================================================
 
-@tf.function
-def train_step(real_images):
+def generator_loss(fake_output):
 
-    batch_size = tf.shape(real_images)[0]
-
-    noise = tf.random.normal(
-        [batch_size, LATENT_DIM]
+    return cross_entropy(
+        tf.ones_like(fake_output),
+        fake_output
     )
 
-    with tf.GradientTape() as g_tape, tf.GradientTape() as d_tape:
 
-        fake_images = generator(
+def discriminator_loss(real_output, fake_output):
+
+    real_loss = cross_entropy(
+        tf.ones_like(real_output),
+        real_output
+    )
+
+    fake_loss = cross_entropy(
+        tf.zeros_like(fake_output),
+        fake_output
+    )
+
+    return real_loss + fake_loss
+
+
+# ============================================================
+# TRAINING STEP
+# ============================================================
+
+@tf.function
+def train_step(images):
+
+    noise = tf.random.normal(
+        [tf.shape(images)[0], LATENT_DIM]
+    )
+
+    with tf.GradientTape() as gen_tape, \
+         tf.GradientTape() as disc_tape:
+
+        generated_images = generator(
             noise,
             training=True
         )
 
         real_output = discriminator(
-            real_images,
+            images,
             training=True
         )
 
         fake_output = discriminator(
-            fake_images,
+            generated_images,
             training=True
         )
 
-        g_loss = cross_entropy(
-            tf.ones_like(fake_output),
+        gen_loss = generator_loss(fake_output)
+
+        disc_loss = discriminator_loss(
+            real_output,
             fake_output
         )
 
-        d_loss_real = cross_entropy(
-            tf.ones_like(real_output),
-            real_output
-        )
-
-        d_loss_fake = cross_entropy(
-            tf.zeros_like(fake_output),
-            fake_output
-        )
-
-        d_loss = (
-            d_loss_real + d_loss_fake
-        ) / 2
-
-    g_gradients = g_tape.gradient(
-        g_loss,
+    gradients_of_generator = gen_tape.gradient(
+        gen_loss,
         generator.trainable_variables
     )
 
-    d_gradients = d_tape.gradient(
-        d_loss,
+    gradients_of_discriminator = disc_tape.gradient(
+        disc_loss,
         discriminator.trainable_variables
     )
 
-    g_optimizer.apply_gradients(
+    generator_optimizer.apply_gradients(
         zip(
-            g_gradients,
+            gradients_of_generator,
             generator.trainable_variables
         )
     )
 
-    d_optimizer.apply_gradients(
+    discriminator_optimizer.apply_gradients(
         zip(
-            d_gradients,
+            gradients_of_discriminator,
             discriminator.trainable_variables
         )
     )
 
-    return g_loss, d_loss
+    return gen_loss, disc_loss
 
 
-# =========================
+# ============================================================
 # TRAIN GAN
-# =========================
+# ============================================================
 
 print("=" * 50)
 print("STARTING GAN TRAINING")
@@ -156,37 +184,83 @@ print("=" * 50)
 generator_losses = []
 discriminator_losses = []
 
+
 for epoch in range(EPOCHS):
 
-    g_total = 0
-    d_total = 0
-    batches = 0
+    gen_epoch_loss = []
+    disc_epoch_loss = []
 
     for images in dataset:
 
-        g_loss, d_loss = train_step(images)
+        gen_loss, disc_loss = train_step(images)
 
-        g_total += float(g_loss)
-        d_total += float(d_loss)
+        gen_epoch_loss.append(
+            float(gen_loss)
+        )
 
-        batches += 1
+        disc_epoch_loss.append(
+            float(disc_loss)
+        )
 
-    g_average = g_total / batches
-    d_average = d_total / batches
+    # Calculate average losses for the epoch
 
-    generator_losses.append(g_average)
-    discriminator_losses.append(d_average)
+    avg_gen_loss = np.mean(
+        gen_epoch_loss
+    )
+
+    avg_disc_loss = np.mean(
+        disc_epoch_loss
+    )
+
+    generator_losses.append(
+        avg_gen_loss
+    )
+
+    discriminator_losses.append(
+        avg_disc_loss
+    )
 
     print(
-        f"Epoch {epoch + 1}/{EPOCHS} | "
-        f"Generator Loss: {g_average:.4f} | "
-        f"Discriminator Loss: {d_average:.4f}"
+        f"Epoch {epoch + 1}/{EPOCHS} "
+        f"- Generator Loss: {avg_gen_loss:.4f} "
+        f"- Discriminator Loss: {avg_disc_loss:.4f}"
+    )
+
+    # ========================================================
+    # SAVE CHECKPOINT AFTER EVERY EPOCH
+    # ========================================================
+
+    generator.save(
+        os.path.join(
+            MODEL_PATH,
+            f"generator_epoch_{epoch + 1}.keras"
+        )
+    )
+
+    discriminator.save(
+        os.path.join(
+            MODEL_PATH,
+            f"discriminator_epoch_{epoch + 1}.keras"
+        )
+    )
+
+    print(
+        f"Checkpoint saved for Epoch {epoch + 1}"
     )
 
 
-# =========================
-# SAVE MODELS
-# =========================
+# ============================================================
+# TRAINING COMPLETED
+# ============================================================
+
+print("=" * 50)
+print("TRAINING COMPLETED")
+print("=" * 50)
+
+
+# ============================================================
+# SAVE FINAL MODELS
+# ============================================================
 
 generator.save(
     os.path.join(
@@ -202,9 +276,133 @@ discriminator.save(
     )
 )
 
+print("Generator saved successfully")
+print("Discriminator saved successfully")
+
+
+# ============================================================
+# SAVE LOSS DATA
+# ============================================================
+
+np.save(
+    os.path.join(
+        EVALUATION_PATH,
+        "generator_losses.npy"
+    ),
+    np.array(generator_losses)
+)
+
+np.save(
+    os.path.join(
+        EVALUATION_PATH,
+        "discriminator_losses.npy"
+    ),
+    np.array(discriminator_losses)
+)
+
+print("Loss data saved successfully")
+
+
+# ============================================================
+# CREATE LOSS GRAPH
+# ============================================================
+
+plt.figure(figsize=(10, 5))
+
+plt.plot(
+    generator_losses,
+    label="Generator Loss"
+)
+
+plt.plot(
+    discriminator_losses,
+    label="Discriminator Loss"
+)
+
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+
+plt.title(
+    "GAN Training Loss"
+)
+
+plt.legend()
+
+plt.grid(True)
+
+plt.savefig(
+    os.path.join(
+        EVALUATION_PATH,
+        "loss_graph.png"
+    )
+)
+
+plt.close()
+
+print("Loss graph saved successfully")
+print(
+    "Location: evaluation/loss_graph.png"
+)
+
+
+# ============================================================
+# GENERATE SYNTHETIC IMAGES
+# ============================================================
+
 print("=" * 50)
-print("TRAINING COMPLETED")
+print("GENERATING SYNTHETIC IMAGES")
 print("=" * 50)
 
-print("Generator saved successfully!")
-print("Discriminator saved successfully!")
+NUMBER_OF_IMAGES = 20
+
+noise = tf.random.normal(
+    [NUMBER_OF_IMAGES, LATENT_DIM]
+)
+
+generated_images = generator(
+    noise,
+    training=False
+)
+
+
+# Convert from [-1, 1] to [0, 255]
+
+generated_images = (
+    (generated_images + 1.0) * 127.5
+)
+
+generated_images = tf.clip_by_value(
+    generated_images,
+    0,
+    255
+)
+
+generated_images = tf.cast(
+    generated_images,
+    tf.uint8
+)
+
+
+# ============================================================
+# SAVE GENERATED IMAGES
+# ============================================================
+
+for i in range(NUMBER_OF_IMAGES):
+
+    image = generated_images[i].numpy()
+
+    tf.keras.utils.save_img(
+        os.path.join(
+            OUTPUT_PATH,
+            f"synthetic_{i + 1}.png"
+        ),
+        image
+    )
+
+
+print("Generated Images:", NUMBER_OF_IMAGES)
+print("Synthetic image generation completed")
+
+print("=" * 50)
+print("GAN PIPELINE COMPLETED SUCCESSFULLY")
+print("=" * 50)
