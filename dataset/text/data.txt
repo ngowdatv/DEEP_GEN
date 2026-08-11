@@ -1,0 +1,10 @@
+Artificial intelligence is transforming modern technology.
+Machine learning allows computers to learn from data.
+Deep learning uses neural networks to solve complex problems.
+Generative artificial intelligence can create synthetic data.
+Synthetic data is useful for research and machine learning.
+Generative models can generate images, text, and tabular data.
+GANs are commonly used for synthetic image generation.
+CTGAN can be used for synthetic tabular data generation.
+Text generation models can generate new text from existing datasets.
+Deep generative frameworks provide a unified approach to synthetic data generation.
