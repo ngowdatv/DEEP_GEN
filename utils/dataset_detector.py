@@ -1,60 +1,105 @@
 import os
 
-IMAGE_EXTENSIONS = {
-    ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"
-}
 
-CSV_EXTENSIONS = {
-    ".csv"
-}
+IMAGE_EXTENSIONS = (
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".bmp",
+    ".gif",
+    ".webp"
+)
 
-TEXT_EXTENSIONS = {
-    ".txt", ".json"
-}
+TEXT_EXTENSIONS = (
+    ".txt",
+    ".text",
+    ".md",
+    ".log",
+    ".json"
+)
 
 
 def detect_dataset_type(dataset_path):
 
-    image_count = 0
-    csv_count = 0
-    text_count = 0
+    # ========================================================
+    # CHECK WHETHER PATH EXISTS
+    # ========================================================
 
-    for root, dirs, files in os.walk(dataset_path):
-
-        for file in files:
-
-            extension = os.path.splitext(file)[1].lower()
-
-            if extension in IMAGE_EXTENSIONS:
-                image_count += 1
-
-            elif extension in CSV_EXTENSIONS:
-                csv_count += 1
-
-            elif extension in TEXT_EXTENSIONS:
-                text_count += 1
-
-    counts = {
-        "image": image_count,
-        "csv": csv_count,
-        "text": text_count
-    }
-
-    dataset_type = max(counts, key=counts.get)
-
-    if counts[dataset_type] == 0:
+    if not os.path.exists(dataset_path):
         return "unknown"
 
-    return dataset_type
+    # ========================================================
+    # IF USER PROVIDES A SINGLE FILE
+    # ========================================================
 
+    if os.path.isfile(dataset_path):
 
-if __name__ == "__main__":
+        extension = os.path.splitext(
+            dataset_path
+        )[1].lower()
 
-    path = "dataset"
+        if extension in IMAGE_EXTENSIONS:
+            return "image"
 
-    result = detect_dataset_type(path)
+        elif extension == ".csv":
+            return "csv"
 
-    print("=" * 40)
-    print("DATASET DETECTION")
-    print("=" * 40)
-    print("Detected Type:", result.upper())
+        elif extension in TEXT_EXTENSIONS:
+            return "text"
+
+        else:
+            return "unknown"
+
+    # ========================================================
+    # IF USER PROVIDES A DIRECTORY
+    # ========================================================
+
+    if os.path.isdir(dataset_path):
+
+        files = []
+
+        for root, directories, filenames in os.walk(
+            dataset_path
+        ):
+
+            for filename in filenames:
+
+                files.append(
+                    filename.lower()
+                )
+
+        # ----------------------------------------------------
+        # CHECK IMAGE FILES
+        # ----------------------------------------------------
+
+        for filename in files:
+
+            if filename.endswith(
+                IMAGE_EXTENSIONS
+            ):
+
+                return "image"
+
+        # ----------------------------------------------------
+        # CHECK CSV FILES
+        # ----------------------------------------------------
+
+        for filename in files:
+
+            if filename.endswith(".csv"):
+
+                return "csv"
+
+        # ----------------------------------------------------
+        # CHECK TEXT FILES
+        # ----------------------------------------------------
+
+        for filename in files:
+
+            if filename.endswith(
+                TEXT_EXTENSIONS
+            ):
+
+                return "text"
+
+    return "unknown"
